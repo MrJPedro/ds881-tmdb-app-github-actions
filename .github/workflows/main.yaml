@@ -1,0 +1,69 @@
+name: TESTE CI
+
+on:
+  push:
+    branches:
+      - release
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node.js @20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+  
+  build:
+    runs-on: ubuntu-latest
+
+    needs: test
+
+    steps:
+      - name: Montar .env
+        run: echo "EXPO_PUBLIC_TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}" > .env
+
+      - name: Exportar para plataforma web
+        run: npx expo export --platform web
+
+      - name: Criar .nojekyll
+        run: touch dist/.nojekyll
+
+      - name: Upload dist como artefato
+        id: build
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: github-pages
+          path: dist/
+          retention-days: 0
+        
+  deploy:
+    runs-on: ubuntu-latest
+
+    needs: build
+
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy para o GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
